@@ -1,0 +1,123 @@
+# ======================================
+# OS / General
+# ======================================
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ======================================
+# Node / Packages
+# ======================================
+node_modules/
+bower_components/
+jspm_packages/
+
+# Package manager caches
+.npm/
+.yarn/
+.pnpm-store/
+
+# ======================================
+# Build output
+# ======================================
+dist/
+build/
+out/
+.next/
+.nuxt/
+temp/
+tmp/
+.cache/
+.cache-loader/
+.vite/
+.storybook-out/
+.svelte-kit/
+
+# ======================================
+# Env / Secrets
+# ======================================
+.env
+.env.*.local
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ======================================
+# Testing
+# ======================================
+coverage/
+.nyc_output/
+jest-html-reporters-*.html
+test-results/
+playwright-report/
+test-output/
+
+# ======================================
+# TypeScript
+# ======================================
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# ======================================
+# Logs / Local data
+# ======================================
+*.log
+logs/
+*.pid
+*.seed
+*.pid.lock
+
+# ======================================
+# Editors / IDEs
+# ======================================
+# VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/tasks.json
+!.vscode/launch.json
+
+# WebStorm / IntelliJ
+.idea/
+*.iml
+
+# Sublime
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+
+# ======================================
+# Misc Tools
+# ======================================
+# ESLint cache
+.eslintcache
+
+# Stylelint
+.stylelintcache
+
+# Parcel
+.cache/
+
+# Storybook
+storybook-static/
+
+# Turborepo
+.turbo/
+
+# Next.js
+.vercel/
+
+# Netlify
+.netlify/
+
+# Docker
+docker-compose.override.yml
