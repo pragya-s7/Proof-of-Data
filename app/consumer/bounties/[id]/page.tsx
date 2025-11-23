@@ -13,26 +13,27 @@ import { UploadCloud, CheckCircle2, Wallet, ChevronLeft, FileText, Database } fr
 import { toast } from "sonner"
 import { ConnectButton } from "@rainbow-me/rainbowkit"
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi"
+import { useDeTrainContract } from "@/lib/useDeTrainContract";
 
-// ABI Segment for submitData
-const CONTRACT_ABI = [
-  {
-    "inputs": [{"internalType": "string","name": "dataHash","type": "string"}],
-    "name": "submitData",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  }
-];
-const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`;
+// Remove CONTRACT_ABI/CONTRACT_ADDRESS, use hook and global ABI/address instead
+// const CONTRACT_ABI = [
+//   {
+//     "inputs": [{"internalType": "string","name": "dataHash","type": "string"}],
+//     "name": "submitData",
+//     "outputs": [],
+//     "stateMutability": "nonpayable",
+//     "type": "function"
+//   }
+// ];
+// const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`;
 
 export default function BountyDetail() {
   // ... hook logic ...
   const { isConnected } = useAccount()
   const [uploadState, setUploadState] = useState<"idle" | "uploading" | "tx_pending" | "success" | "error">("idle")
   const [zeroGHash, setZeroGHash] = useState<string>("")
-  const { data: hash, writeContract, isPending } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash }) 
+  const detrainContract = useDeTrainContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: detrainContract.hash }) 
 
   const handleFileUpload = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -55,12 +56,7 @@ export default function BountyDetail() {
 
       setZeroGHash(result.rootHash);
       setUploadState("tx_pending");
-      writeContract({
-        address: CONTRACT_ADDRESS,
-        abi: CONTRACT_ABI,
-        functionName: 'submitData',
-        args: [result.rootHash],
-      });
+      await detrainContract.submitData(result.rootHash);
     } catch (err: any) {
         console.error(err);
         setUploadState("error");
@@ -181,7 +177,7 @@ export default function BountyDetail() {
                                 <p className="text-white font-medium">Confirm Transaction</p>
                                 <p className="text-xs text-zinc-500 mt-1">Please sign in your wallet.</p>
                             </div>
-                            {isPending && <Badge variant="outline" className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">Waiting for signature...</Badge>}
+                            {detrainContract.isPending && <Badge variant="outline" className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">Waiting for signature...</Badge>}
                             {isConfirming && <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20">Confirming on Oasis...</Badge>}
                         </div>
                     )}
