@@ -28,7 +28,7 @@ def check_reward_pool():
     
     reward_pool = datatrain_contract.functions.rewardPool().call()
     
-    print(f"Reward Pool Balance: {w3.from_wei(reward_pool, 'ether')} MockUSDC")
+    print(f"Reward Pool Balance: {w3.from_wei(reward_pool, 'mwei')} MockUSDC")
 
 if __name__ == "__main__":
     check_reward_pool()

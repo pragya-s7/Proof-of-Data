@@ -32,7 +32,7 @@ def mint_musdc():
     musdc_artifact = get_contract_artifact("MockUSDC")
     musdc_contract = w3.eth.contract(address=musdc_address, abi=musdc_artifact['abi'])
     
-    amount_to_mint = w3.to_wei(1000, 'ether') # Mint 1000 mUSDC
+    amount_to_mint = w3.to_wei(1000, 'mwei') # Mint 1000 mUSDC (6 decimals)
 
     print(f"Minting {w3.from_wei(amount_to_mint, 'ether')} mUSDC to {account.address}...")
 

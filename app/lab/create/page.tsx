@@ -9,15 +9,35 @@ import { useDeTrainContract } from '@/lib/useDeTrainContract'
 import { useAccount } from 'wagmi'
 import { toast } from 'sonner'
 import { ethers } from 'ethers'
-import ERC20_ABI from '@/abis/ERC20.json'
+import deployedAddresses from '@/backend/deployed-addresses.json';
+import MockUSDC_ABI from '@/backend/artifacts/contracts/MockUSDC.sol/MockUSDC.json';
 
-// TODO: Replace with the actual address of the MockUSDC token
-const MOCK_USDC_ADDRESS = "0xD639B73bcc95533C25Cf73Df424a17c3F049eDC0" 
+const MOCK_USDC_ADDRESS = deployedAddresses.MockUSDC;
 
 export default function CreateBounty() {
   const detrainContract = useDeTrainContract();
   const { address, isConnected } = useAccount();
   const [loading, setLoading] = useState(false);
+  const [minting, setMinting] = useState(false);
+
+  const handleMint = async () => {
+    setMinting(true);
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const usdcContract = new ethers.Contract(MOCK_USDC_ADDRESS, MockUSDC_ABI.abi, signer);
+
+      toast.info("Minting 1000 MockUSDC...");
+      const tx = await usdcContract.mint(address, ethers.parseUnits("1000", 6));
+      await tx.wait();
+      toast.success("Successfully minted 1000 MockUSDC!");
+    } catch (err) {
+      toast.error(err.message || "Failed to mint tokens");
+      console.error('Mint error', err);
+    } finally {
+      setMinting(false);
+    }
+  }
 
   const handleFund = async (event) => {
     event.preventDefault();
@@ -37,7 +57,7 @@ export default function CreateBounty() {
       const signer = await provider.getSigner();
       const contractWithSigner = detrainContract.connect(signer);
 
-      const usdcContract = new ethers.Contract(MOCK_USDC_ADDRESS, ERC20_ABI, signer);
+      const usdcContract = new ethers.Contract(MOCK_USDC_ADDRESS, MockUSDC_ABI.abi, signer);
 
       const balance = await usdcContract.balanceOf(await signer.getAddress());
       console.log("MockUSDC balance:", ethers.formatUnits(balance, 6));
@@ -80,6 +100,19 @@ export default function CreateBounty() {
   return (
     <div className="container py-10 max-w-2xl">
       <h1 className="text-3xl font-bold tracking-tight mb-8">Fund Bounty</h1>
+
+      <Card className="bg-zinc-900/50 border-white/10 mb-8">
+        <CardHeader>
+          <CardTitle>Mint MockUSDC</CardTitle>
+          <CardDescription>Mint some MockUSDC tokens to your account for testing.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button onClick={handleMint} disabled={minting || !isConnected}>
+            {minting ? 'Minting...' : 'Mint 1000 mUSDC'}
+          </Button>
+        </CardContent>
+      </Card>
+
       <Card className="bg-zinc-900/50 border-white/10">
         <CardHeader>
           <CardTitle>Bounty Details</CardTitle>
