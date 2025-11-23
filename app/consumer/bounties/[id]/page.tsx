@@ -61,9 +61,7 @@ export default function BountyDetail() {
       return;
     }
 
-    const formData = new FormData(e.currentTarget)
-    const label = formData.get("label") as string
-    const prompt = "Handwritten Digit Recognition" 
+    const prompt = "Images of snacks for robot training - chips, candy, drinks, or similar food items" 
 
     setUploadState("uploading")
 
@@ -78,15 +76,15 @@ export default function BountyDetail() {
       const result = await response.json();
       if (!result.success) throw new Error(result.message);
 
-      const dataHashWithLabel = `${result.rootHash}|${label}`
-      setZeroGHash(dataHashWithLabel);
+      // Just use the rootHash - ROFL agent will evaluate uniqueness
+      setZeroGHash(result.rootHash);
       setUploadState("tx_pending");
-      
+
       const txHash = await writeContractAsync({
         address: detrainContract.address as `0x${string}`,
         abi: detrainContract.abi,
         functionName: 'submitData',
-        args: [dataHashWithLabel],
+        args: [result.rootHash],
       });
 
       const submissionId = await detrainContract.read.nextSubmissionId() - 1n;
@@ -104,15 +102,7 @@ export default function BountyDetail() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Top Navigation Bar */}
-      <div className="border-b border-white/10 bg-black/50 backdrop-blur-md sticky top-16 z-30">
-        <div className="container h-16 flex items-center justify-between">
-             <Link href="/consumer/bounties" className="text-sm font-medium text-zinc-400 hover:text-white flex items-center transition-colors">
-                <ChevronLeft className="mr-1 h-4 w-4" /> Back to Marketplace
-            </Link>
-            <ConnectButton />
-        </div>
-      </div>
+      
 
       <div className="container py-10 max-w-6xl">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
@@ -122,11 +112,11 @@ export default function BountyDetail() {
             <div>
                 <div className="flex items-center gap-3 mb-4">
                     <Badge variant="secondary" className="bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 rounded-md border border-purple-500/20">Computer Vision</Badge>
-                    <Badge variant="outline" className="text-zinc-400 border-white/10">MNIST</Badge>
+                    <Badge variant="outline" className="text-zinc-400 border-white/10">Robotics</Badge>
                 </div>
-                <h1 className="text-4xl font-medium tracking-tight mb-4 text-white">Handwritten Digit Recognition</h1>
+                <h1 className="text-4xl font-medium tracking-tight mb-4 text-white">Snack Distribution Robot Training</h1>
                 <p className="text-lg text-zinc-400 leading-relaxed">
-                    OpenAI Research is seeking high-quality images of handwritten digits (0-9) to improve the robustness of their OCR models against noisy backgrounds.
+                    Anthropic Robotics is building a snack distribution robot for hackathons. We need diverse images of snacks (chips, candy, drinks, etc.) to train our vision system to recognize and pick up different snack types.
                 </p>
             </div>
 
@@ -140,9 +130,10 @@ export default function BountyDetail() {
                     <div className="bg-zinc-900/50 border border-white/10 rounded-2xl p-6 space-y-4">
                         <h3 className="font-medium flex items-center gap-2 text-white"><FileText className="h-4 w-4 text-purple-400"/> Data Format</h3>
                         <ul className="list-disc list-inside text-zinc-400 space-y-2 ml-2">
-                            <li>Format: CSV or Grayscale Image Folder</li>
-                            <li>Resolution: 28x28 pixels minimum</li>
-                            <li>Labeling: Must include ground truth labels (0-9)</li>
+                            <li>Format: JPG, PNG, or other image formats</li>
+                            <li>Resolution: 512x512 pixels minimum</li>
+                            <li>Content: Clear images of snacks (chips, candy, drinks, etc.)</li>
+                            <li>Quality: Well-lit, focused, minimal background clutter</li>
                         </ul>
                     </div>
                 </TabsContent>
@@ -180,11 +171,7 @@ export default function BountyDetail() {
                     {uploadState === "idle" && (
                       <form onSubmit={handleFileUpload} className="space-y-6">
                         <div className="space-y-3">
-                            <Label htmlFor="label" className="text-sm font-medium text-zinc-300">Label</Label>
-                            <Input id="label" name="label" type="text" placeholder="e.g. 5" className="bg-zinc-950 border-white/10" required />
-                        </div>
-                        <div className="space-y-3">
-                            <Label htmlFor="dataset" className="text-sm font-medium text-zinc-300">Upload Dataset</Label>
+                            <Label htmlFor="dataset" className="text-sm font-medium text-zinc-300">Upload Snack Image</Label>
                             <div className="border-2 border-dashed border-white/10 rounded-xl p-6 hover:bg-white/5 transition-colors text-center cursor-pointer relative group">
                                 <Input id="dataset" name="dataset" type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={handleFileChange} required />
                                 {selectedFile ? (
@@ -196,13 +183,13 @@ export default function BountyDetail() {
                                   <>
                                     <UploadCloud className="h-8 w-8 text-zinc-500 group-hover:text-purple-400 transition-colors mx-auto mb-2" />
                                     <p className="text-sm text-purple-400 font-medium">Click to upload</p>
-                                    <p className="text-xs text-zinc-500">CSV, TXT, or ZIP</p>
+                                    <p className="text-xs text-zinc-500">PNG, JPG, or JPEG</p>
                                   </>
                                 )}
                             </div>
                         </div>
                         <Button type="submit" className="w-full rounded-xl bg-purple-600 hover:bg-purple-700 h-12 text-base shadow-lg shadow-purple-900/20 text-white">
-                            Verify & Submit
+                            Upload & Verify
                         </Button>
                       </form>
                     )}

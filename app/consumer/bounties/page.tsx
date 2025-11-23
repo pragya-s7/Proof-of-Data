@@ -46,10 +46,10 @@ export default function BountyMarketplace() {
 
   const realBounty = {
     id: dataTrainingAddress,
-    title: "Handwritten Digit Recognition Dataset",
-    labName: "OpenAI Research (REAL)",
+    title: "Snack Distribution Robot Training Dataset",
+    labName: "Anthropic Robotics (REAL)",
     reward: "500",
-    tags: ["Vision", "MNIST", "Image"],
+    tags: ["Vision", "Robotics", "Food Recognition"],
     timeLeft: "Ongoing",
     difficulty: "Easy",
   };

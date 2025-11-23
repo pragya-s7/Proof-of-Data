@@ -16,9 +16,10 @@ RPC_URL = "https://testnet.sapphire.oasis.dev"
 ZG_STORAGE_NODE = "https://rpc-storage-testnet.0g.ai"
 CONTRACT_ADDRESS = os.getenv("CONTRACT_ADDRESS")
 MODEL_PATH = "/data/model/current_model.pkl"
-TARGET_SIZE = (224, 224) # Increased target size for better feature extraction
+TARGET_SIZE = (128, 128)
 
 if not CONTRACT_ADDRESS:
+    # Fallback for local testing if env var is missing
     print("⚠️  WARNING: CONTRACT_ADDRESS not found in env, using placeholder")
     CONTRACT_ADDRESS = "0x0000000000000000000000000000000000000000"
 
@@ -39,13 +40,11 @@ def process_any_image(image_bytes):
         img_array = np.array(img).astype(np.float32) / 255.0
         flat_features = img_array.flatten()
         if np.mean(flat_features) < 0.01:
-            return None, None
-        # TODO: This is a placeholder label. The actual label should be extracted from the image or provided in the data.
-        label = 1 
-        return flat_features, label
+            return None
+        return flat_features
     except Exception as e:
         print(f"❌ Processing Error: {e}")
-        return None, None
+        return None
 
 def download_from_0g(root_hash):
     try:
@@ -56,11 +55,10 @@ def download_from_0g(root_hash):
             content = io.BytesIO()
             for chunk in r.iter_content(chunk_size=8192):
                 content.write(chunk)
-                if content.tell() > 50 * 1024 * 1024: 
+                if content.tell() > 50 * 1024 * 1024:
                     print("❌ File too large")
                     return None
-            features, _ = process_any_image(content.getvalue())
-            return features
+            return process_any_image(content.getvalue())
     except Exception as e:
         print(f"❌ 0G Error: {e}")
         return None
@@ -98,16 +96,18 @@ class RoflAgent:
             try:
                 current_block = w3.eth.block_number
                 if current_block > last_block:
+                    # USE GET_LOGS (Stateless) instead of Filters
+                    # from_block (snake_case) is mandatory for Web3.py v7
                     events = self.contract.events.DataSubmitted.get_logs(
                         from_block=last_block + 1,
                         to_block=current_block
                     )
-                    
+
                     for event in events:
                         self.process(event)
-                    
+
                     last_block = current_block
-                
+
                 time.sleep(5)
             except Exception as e:
                 print(f"⚠️ Polling Error: {e}")
@@ -116,19 +116,13 @@ class RoflAgent:
     def process(self, event):
         try:
             sub_id = event['args']['submissionId']
-            data_hash_with_label = event['args']['dataHash']
+            data_hash = event['args']['dataHash']
             print(f"\n--- Processing #{sub_id} ---")
-            
-            root_hash, label_str = data_hash_with_label.split('|')
-            label = int(label_str)
-
-            features, _ = download_from_0g(root_hash)
+            features = download_from_0g(data_hash)
             if features is None: return
-            
-            accuracy_delta = self.nano_model.evaluate_contribution((features, label))
-            print(f"📊 Accuracy Delta: {accuracy_delta:.5f}")
-            
-            tx_data = self.contract.functions.reportEvaluation(sub_id, int(accuracy_delta * 100000)).build_transaction({'gas': 2000000, 'gasPrice': w3.eth.gas_price})
+            score = self.nano_model.evaluate_uniqueness(features)
+            print(f"📊 Uniqueness Score: {score:.5f}")
+            tx_data = self.contract.functions.reportEvaluation(sub_id, int(score * 100000)).build_transaction({'gas': 2000000, 'gasPrice': w3.eth.gas_price})
             sign_and_send({'to': CONTRACT_ADDRESS, 'data': Web3.to_bytes(hexstr=tx_data['data'])})
         except Exception as e:
             print(f"❌ Processing Logic Error: {e}")

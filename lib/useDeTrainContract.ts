@@ -7,18 +7,33 @@ const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_DETRAIN_CONTRACT_ADDRESS || "0x
 
 export function useDeTrainContract() {
   return useMemo(() => {
-    if (typeof window === "undefined" || !(window as any).ethereum) return null;
+    if (typeof window === "undefined" || !(window as any).ethereum) {
+      // Return a minimal object that works with wagmi even before wallet connection
+      return {
+        address: CONTRACT_ADDRESS,
+        abi: DataTrainingABI.abi || DataTrainingABI,
+        read: null,
+      };
+    }
     try {
       const provider = new BrowserProvider((window as any).ethereum);
-      // WARNING: getSigner() is asynchronous in ethers v6, so we can't return a contract-with-signer synchronously.
-      // Instead, we return the provider-attached contract for reads; writes must call .connect(signer).
-      return new Contract(
+      const contract = new Contract(
         CONTRACT_ADDRESS,
         DataTrainingABI.abi || DataTrainingABI,
         provider
       );
+      // Return object with both wagmi-compatible properties and ethers contract
+      return {
+        address: CONTRACT_ADDRESS,
+        abi: DataTrainingABI.abi || DataTrainingABI,
+        read: contract,
+      };
     } catch {
-      return null;
+      return {
+        address: CONTRACT_ADDRESS,
+        abi: DataTrainingABI.abi || DataTrainingABI,
+        read: null,
+      };
     }
   }, []);
 }

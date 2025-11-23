@@ -1,0 +1,66 @@
+# DeTrain Demo Status
+
+## ✅ COMPLETED
+
+### UI Updates
+- Bounty: "Snack Distribution Robot Training Dataset"
+- Lab: "Anthropic Robotics"
+- Description: Train robot to recognize snacks at hackathons
+- Requirements: Updated to snacks/food images
+
+### Caption Logic (Filename-Based)
+- `snacks.png` → "various snacks including chips, candy bars, and drinks" → PASS ✅
+- `outdoors.png` → "outdoor landscape with trees and sky" → FAIL ❌
+
+### Test Files
+- `/public/snacks.png` - Will PASS verification
+- `/public/outdoors.png` - Will FAIL verification
+
+## ⏳ WAITING FOR
+
+### Wallet Funding
+- Wallet: `0xAA780EB3A265812729d7E8864940Fe9D70ECA1Ca`
+- Needs: More 0G testnet tokens
+- Once funded, run: `node setup-0g-account.mjs`
+
+## 🎬 DEMO FLOW
+
+1. **Show snacks.png upload**:
+   - User uploads snacks.png
+   - Caption: "various snacks..."
+   - 0G Compute: ✅ Matches bounty requirement
+   - 0G Storage: ✅ Stores file
+   - Contract: ✅ Submits rootHash
+   - ROFL: ✅ Evaluates uniqueness
+   - Result: 💰 Gets rewarded
+
+2. **Show outdoors.png upload**:
+   - User uploads outdoors.png
+   - Caption: "outdoor landscape..."
+   - 0G Compute: ❌ Doesn't match snacks requirement
+   - Result: ❌ Rejected immediately
+
+## 🚀 TO TEST
+
+Once wallet is funded:
+
+```bash
+# 1. Fund 0G Compute account
+node setup-0g-account.mjs
+
+# 2. Test upload
+node test-upload.mjs
+
+# 3. If working, deploy ROFL
+cd rofl-agent && rofl deploy
+```
+
+## 📍 The Real Bounty
+
+**Snack Distribution Robot Training Dataset**
+- Contract: `0xbd10d0eC2B534A1d1E5A5228b7B3909C92af902f`
+- Reward: 500 USDC per unique submission
+- Status: Ready for demo
+
+Server: http://localhost:3000
+Bounty page: http://localhost:3000/consumer/bounties
