@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,36 +9,49 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { UploadCloud, CheckCircle2, Wallet, ChevronLeft, FileText, Database } from "lucide-react"
+import { UploadCloud, CheckCircle2, Wallet, ChevronLeft, FileText, Database, XCircle } from "lucide-react"
 import { toast } from "sonner"
 import { ConnectButton } from "@rainbow-me/rainbowkit"
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi"
+import { useAccount, useWriteContract, useWatchContractEvent } from "wagmi"
 import { useDeTrainContract } from "@/lib/useDeTrainContract";
-
-// Remove CONTRACT_ABI/CONTRACT_ADDRESS, use hook and global ABI/address instead
-// const CONTRACT_ABI = [
-//   {
-//     "inputs": [{"internalType": "string","name": "dataHash","type": "string"}],
-//     "name": "submitData",
-//     "outputs": [],
-//     "stateMutability": "nonpayable",
-//     "type": "function"
-//   }
-// ];
-// const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`;
+import { formatUnits } from "ethers"
 
 export default function BountyDetail() {
-  // ... hook logic ...
-  const { isConnected } = useAccount()
-  const [uploadState, setUploadState] = useState<"idle" | "uploading" | "tx_pending" | "success" | "error">("idle")
+  const { address, isConnected } = useAccount()
+  const [uploadState, setUploadState] = useState<"idle" | "uploading" | "tx_pending" | "evaluating" | "evaluated" | "success" | "error">("idle")
   const [zeroGHash, setZeroGHash] = useState<string>("")
+  const [submissionId, setSubmissionId] = useState<bigint | null>(null)
+  const [evaluationResult, setEvaluationResult] = useState<{ accuracyDelta: bigint, payout: bigint } | null>(null)
+  
+  const { writeContractAsync } = useWriteContract()
   const detrainContract = useDeTrainContract();
-  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: detrainContract.hash }) 
+
+  useWatchContractEvent({
+    address: detrainContract?.address as `0x${string}`,
+    abi: detrainContract?.abi,
+    eventName: 'EvaluationReported',
+    onLogs(logs) {
+      const log = logs.find(l => l.args.submissionId === submissionId);
+      if (log) {
+        setEvaluationResult({
+          accuracyDelta: log.args.accuracyDelta,
+          payout: log.args.payout,
+        });
+        setUploadState("evaluated");
+        if (log.args.payout > 0) {
+          toast.success(`Evaluation complete! You earned ${formatUnits(log.args.payout, 6)} USDC.`);
+        } else {
+          toast.info("Evaluation complete. No reward for this submission.");
+        }
+      }
+    },
+  });
 
   const handleFileUpload = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
     const file = formData.get("dataset") as File
+    const label = formData.get("label") as string
     const prompt = "Handwritten Digit Recognition" 
 
     if (!file) return;
@@ -55,19 +68,28 @@ export default function BountyDetail() {
       const result = await response.json();
       if (!result.success) throw new Error(result.message);
 
-      setZeroGHash(result.rootHash);
+      const dataHashWithLabel = `${result.rootHash}|${label}`
+      setZeroGHash(dataHashWithLabel);
       setUploadState("tx_pending");
-      await detrainContract.submitData(result.rootHash);
+      
+      const txHash = await writeContractAsync({
+        address: detrainContract.address as `0x${string}`,
+        abi: detrainContract.abi,
+        functionName: 'submitData',
+        args: [dataHashWithLabel],
+      });
+
+      const submissionId = await detrainContract.read.nextSubmissionId() - 1n;
+      setSubmissionId(submissionId);
+      
+      setUploadState("evaluating");
+      toast.info("Submission sent to contract. Awaiting evaluation...");
+
     } catch (err: any) {
         console.error(err);
         setUploadState("error");
         toast.error(err.message || "Upload failed");
     }
-  }
-
-  if (isConfirmed && uploadState !== "success") {
-    setUploadState("success");
-    toast.success("Submission confirmed on Oasis Network!");
   }
 
   return (
@@ -146,7 +168,11 @@ export default function BountyDetail() {
                 ) : (
                     <>
                     {uploadState === "idle" && (
-                        <form onSubmit={handleFileUpload} className="space-y-6">
+                      <form onSubmit={handleFileUpload} className="space-y-6">
+                        <div className="space-y-3">
+                            <Label htmlFor="label" className="text-sm font-medium text-zinc-300">Label</Label>
+                            <Input id="label" name="label" type="text" placeholder="e.g. 5" className="bg-zinc-950 border-white/10" required />
+                        </div>
                         <div className="space-y-3">
                             <Label htmlFor="dataset" className="text-sm font-medium text-zinc-300">Upload Dataset</Label>
                             <div className="border-2 border-dashed border-white/10 rounded-xl p-6 hover:bg-white/5 transition-colors text-center cursor-pointer relative group">
@@ -159,7 +185,7 @@ export default function BountyDetail() {
                         <Button type="submit" className="w-full rounded-xl bg-purple-600 hover:bg-purple-700 h-12 text-base shadow-lg shadow-purple-900/20 text-white">
                             Verify & Submit
                         </Button>
-                        </form>
+                      </form>
                     )}
 
                     {uploadState === "uploading" && (
@@ -175,23 +201,30 @@ export default function BountyDetail() {
                                 <Wallet className="h-6 w-6 text-purple-400" />
                             </div>
                             <div>
-                                <p className="text-white font-medium">Confirm Transaction</p>
+                                <p className="text-white font-medium">Confirming Transaction</p>
                                 <p className="text-xs text-zinc-500 mt-1">Please sign in your wallet.</p>
                             </div>
-                            {detrainContract.isPending && <Badge variant="outline" className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">Waiting for signature...</Badge>}
-                            {isConfirming && <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20">Confirming on Oasis...</Badge>}
                         </div>
                     )}
 
-                    {uploadState === "success" && (
+                    {uploadState === "evaluating" && (
                         <div className="text-center py-8 space-y-4">
-                        <div className="rounded-full h-16 w-16 bg-green-500/10 flex items-center justify-center mx-auto">
-                            <CheckCircle2 className="h-8 w-8 text-green-500" />
+                            <div className="animate-spin rounded-full h-12 w-12 border-4 border-zinc-800 border-t-blue-500 mx-auto"></div>
+                            <p className="text-zinc-400 text-sm font-medium animate-pulse">Awaiting evaluation from the agent...</p>
+                        </div>
+                    )}
+
+                    {uploadState === "evaluated" && evaluationResult && (
+                        <div className="text-center py-8 space-y-4">
+                        <div className={`rounded-full h-16 w-16 ${evaluationResult.payout > 0 ? 'bg-green-500/10' : 'bg-red-500/10'} flex items-center justify-center mx-auto`}>
+                            {evaluationResult.payout > 0 ? <CheckCircle2 className="h-8 w-8 text-green-500" /> : <XCircle className="h-8 w-8 text-red-500" />}
                         </div>
                         <div>
-                            <h3 className="text-xl font-bold text-white">Success!</h3>
+                            <h3 className="text-xl font-bold text-white">Evaluation Complete</h3>
                             <p className="text-zinc-500 text-xs mt-2 font-mono bg-black/30 py-1 px-2 rounded mx-auto w-fit">{zeroGHash.substring(0,10)}...</p>
-                            <p className="text-green-500 mt-2 text-sm font-medium">Data verified & stored.</p>
+                            <p className={`${evaluationResult.payout > 0 ? 'text-green-500' : 'text-red-500'} mt-2 text-sm font-medium`}>
+                              {evaluationResult.payout > 0 ? `You earned ${formatUnits(evaluationResult.payout, 6)} USDC!` : 'Submission did not meet quality standards.'}
+                            </p>
                         </div>
                         <Button onClick={() => setUploadState("idle")} variant="outline" className="w-full rounded-xl border-white/10 hover:bg-white/5 text-white">
                             Submit Another Batch

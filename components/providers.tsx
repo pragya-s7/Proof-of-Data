@@ -7,6 +7,7 @@ import {
   getDefaultConfig,
   darkTheme,
 } from "@rainbow-me/rainbowkit";
+import "@rainbow-me/rainbowkit/styles.css";
 import {
   argentWallet,
   trustWallet,
@@ -15,6 +16,7 @@ import {
 import { Chain } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider } from "wagmi";
+import { SessionProvider } from "./session-provider";
 
 const galileo = {
   id: 16602,
@@ -61,7 +63,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider theme={darkTheme()}>
-          {children}
+          <SessionProvider>{children}</SessionProvider>
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>

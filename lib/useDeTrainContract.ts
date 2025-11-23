@@ -1,7 +1,7 @@
 "use client";
 import { useMemo } from "react";
 import { Contract, BrowserProvider } from "ethers";
-import DeTrainMarketplaceABI from "../abis/DeTrainMarketplace.json";
+import DataTrainingABI from "../abis/DataTraining.json";
 
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_DETRAIN_CONTRACT_ADDRESS || "0xDca3e5cbD9fC8221688f0B064a9C58a2BfBf7b8d";
 
@@ -14,7 +14,7 @@ export function useDeTrainContract() {
       // Instead, we return the provider-attached contract for reads; writes must call .connect(signer).
       return new Contract(
         CONTRACT_ADDRESS,
-        DeTrainMarketplaceABI.abi || DeTrainMarketplaceABI,
+        DataTrainingABI.abi || DataTrainingABI,
         provider
       );
     } catch {

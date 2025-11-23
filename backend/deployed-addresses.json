@@ -1,4 +1,5 @@
 {
-  "network": "galileo",
-  "DeTrainMarketplace": "0xDca3e5cbD9fC8221688f0B064a9C58a2BfBf7b8d"
+  "network": "sapphire-testnet",
+  "DataTraining": "0xbd10d0eC2B534A1d1E5A5228b7B3909C92af902f",
+  "MockUSDC": "0xdAfb72a1571E0b80D846cB96b6831B53deb9644E"
 }

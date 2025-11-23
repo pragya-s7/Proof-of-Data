@@ -1,71 +1,66 @@
 import os
 import pickle
 import numpy as np
-from sklearn.linear_model import SGDOneClassSVM
+from sklearn.linear_model import SGDClassifier
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
 
 class NanoModel:
     def __init__(self, model_path="/data/model/current_model.pkl", input_dim=49152):
         self.model_path = model_path
         self.input_dim = input_dim
+        self.model = SGDClassifier(loss='log_loss', max_iter=1000, tol=1e-3, random_state=42)
         
-        # ONE-CLASS SVM is perfect for "Is this data normal/valid?" vs "Is this noise?"
-        # We use it here to detect NOVELTY.
-        # nu=0.1 means we expect some outliers, random_state for reproducibility
-        self.model = SGDOneClassSVM(nu=0.1, random_state=42)
-        
-        self.seen_count = 0
-        self.load_model()
-
-    def load_model(self):
         if os.path.exists(self.model_path):
-            try:
-                with open(self.model_path, 'rb') as f:
-                    state = pickle.load(f)
-                    self.model = state['model']
-                    self.seen_count = state.get('count', 0)
-                print(f"✅ Model loaded. Processed {self.seen_count} images so far.")
-            except:
-                self._initialize_baseline()
+            print(f"Loading existing model from {self.model_path}...")
+            with open(self.model_path, 'rb') as f:
+                saved_state = pickle.load(f)
+                self.model = saved_state['model']
+                self._validation_set = saved_state['validation_set']
         else:
+            print("No saved model found. Initializing new baseline...")
             self._initialize_baseline()
+            self.save_model()
 
     def _initialize_baseline(self):
-        # Initialize with random noise just to set the dimensions
-        print("✨ Initializing baseline...")
-        X_init = np.random.rand(5, self.input_dim)
-        self.model.partial_fit(X_init)
-        self.seen_count = 0
-        self.save_model()
+        X, y = make_classification(
+            n_samples=100, 
+            n_features=self.input_dim, 
+            n_informative=10, 
+            n_redundant=0, 
+            n_classes=2, 
+            random_state=42
+        )
+        X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+        self._validation_set = (X_val, y_val)
+        self.model.fit(X_train, y_train)
+
+    def get_accuracy(self):
+        X_val, y_val = self._validation_set
+        return self.model.score(X_val, y_val)
 
     def save_model(self):
         os.makedirs(os.path.dirname(self.model_path), exist_ok=True)
+        state = {
+            'model': self.model,
+            'validation_set': self._validation_set
+        }
         with open(self.model_path, 'wb') as f:
-            pickle.dump({'model': self.model, 'count': self.seen_count}, f)
+            pickle.dump(state, f)
+        print("Model state saved.")
 
-    def evaluate_uniqueness(self, features):
-        """
-        Evaluates how 'novel' the image is.
-        Returns a score 0.0 to 1.0 (Higher = Better/More Novel)
-        """
-        X_new = features.reshape(1, -1)
+    def evaluate_contribution(self, new_data_point):
+        features, label = new_data_point
+        features_reshaped = features.reshape(1, -1)
+        label_reshaped = np.array([label])
+
+        accuracy_before = self.get_accuracy()
+        self.model.partial_fit(features_reshaped, label_reshaped, classes=np.array([0, 1]))
+        accuracy_after = self.get_accuracy()
         
-        # 1. Predict (Is this similar to what we've seen?)
-        # SGDOneClassSVM returns 1 for inlier (similar), -1 for outlier (novel/different)
-        # Note: In a 'Bounty' context, usually 'Inlier' means 'Matches Requirements'
-        # But for 'Data Collection', usually 'Outlier' means 'New Unique Data'.
+        accuracy_delta = accuracy_after - accuracy_before
         
-        # Let's assume we want DIVERSE data.
-        # We fit the model on everything we see.
-        
-        self.model.partial_fit(X_new)
-        self.seen_count += 1
-        
-        # We save every 10 images to avoid disk thrashing
-        if self.seen_count % 10 == 0:
-            self.save_model()
+        if accuracy_delta > 0:
+            self.save_model() 
             
-        # For this Proof of Concept, we return a high score if the image 
-        # was successfully processed and added to the manifold.
-        # A real system would calculate distance from the hyperplane.
-        
-        return 0.05 # 5% Contribution score for valid, processed images
+        return accuracy_delta

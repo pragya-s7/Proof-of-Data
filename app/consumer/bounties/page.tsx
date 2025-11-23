@@ -5,25 +5,16 @@ import { Input } from "@/components/ui/input"
 import { Search, Filter } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useEffect, useState } from "react"
-import { useDeTrainContract } from '@/lib/useDeTrainContract'
-import { Spinner } from '@/components/ui/spinner'
+import deployedAddresses from '@/backend/deployed-addresses.json';
 
 export default function BountyMarketplace() {
-  const detrainContract = useDeTrainContract()
-  const [onChainBounties, setOnChainBounties] = useState([])
-  const [loading, setLoading] = useState(false)
+  const [dataTrainingAddress, setDataTrainingAddress] = useState("");
 
-  // Hardcoded fake bounties for aesthetics
+  useEffect(() => {
+    setDataTrainingAddress(deployedAddresses.DataTraining);
+  }, []);
+
   const fakeBounties = [
-    {
-      id: "1",
-      title: "Handwritten Digit Recognition Dataset",
-      labName: "OpenAI Research",
-      reward: "500",
-      tags: ["Vision", "MNIST", "Image"],
-      timeLeft: "2 days left",
-      difficulty: "Easy",
-    },
     {
       id: "2",
       title: "Medical X-Ray Classification (Pneumonia)",
@@ -53,47 +44,17 @@ export default function BountyMarketplace() {
     },
   ];
 
-  useEffect(() => {
-    async function fetchChainBounties() {
-      if (!detrainContract) return;
-      setLoading(true);
-      try {
-        const nextId = await detrainContract.nextBountyId();
-        const bounties = [];
-        for (let i = 0; i < Number(nextId); ++i) {
-          try {
-            const b = await detrainContract.bounties(i);
-            // Hide closed bounties for now
-            if (!b.isOpen) continue;
-            bounties.push({
-              id: String(b.id),
-              title: b.description,
-              labName: b.labOwner,
-              reward: b.rewardAmount && b.rewardAmount.toString && b.rewardAmount.toString() || String(b.rewardAmount),
-              tags: ["chain"],
-              timeLeft: "open on chain",
-              difficulty: b.maxSubmissions > 10 ? "Easy" : b.maxSubmissions > 2 ? "Medium" : "Hard",
-            });
-          } catch (err) {
-            // Ignore individual errors (could be deleted/empty slots)
-          }
-        }
-        setOnChainBounties(bounties);
-      } catch (err) {
-        setOnChainBounties([]);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchChainBounties();
-    // Don't re-fire unless contract changes
-    // eslint-disable-next-line
-  }, [detrainContract]);
+  const realBounty = {
+    id: dataTrainingAddress,
+    title: "Handwritten Digit Recognition Dataset",
+    labName: "OpenAI Research (REAL)",
+    reward: "500",
+    tags: ["Vision", "MNIST", "Image"],
+    timeLeft: "Ongoing",
+    difficulty: "Easy",
+  };
 
-  const allBounties = [
-    ...onChainBounties,
-    ...fakeBounties
-  ];
+  const allBounties = dataTrainingAddress ? [realBounty, ...fakeBounties] : fakeBounties;
 
   return (
     <div className="min-h-screen bg-background">
@@ -104,7 +65,7 @@ export default function BountyMarketplace() {
         <div className="flex flex-col items-center text-center space-y-4 mb-16">
           <h1 className="text-4xl md:text-5xl font-medium tracking-tight text-white">Data Marketplace</h1>
           <p className="text-lg text-zinc-400 max-w-2xl">
-            Discover active bounties from top AI labs. Contribute data, pass verification, and earn crypto instantly.
+            Discover active bounties from top AI labs. Contribute data, pass verification, and earn crypto.
           </p>
           {/* Search Bar */}
           <div className="relative w-full max-w-lg mt-8">
@@ -124,9 +85,6 @@ export default function BountyMarketplace() {
         </div>
         {/* Grid */}
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {loading && (
-            <div className="col-span-4 flex justify-center items-center"><Spinner /> Loading bounties from chain...</div>
-          )}
           {allBounties.map((bounty) => (
             <BountyCard key={bounty.id + (bounty.labName||'')} {...bounty} />
           ))}
