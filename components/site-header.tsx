@@ -1,6 +1,6 @@
+"use client" // Add this at the top
 import { MainNav } from "@/components/main-nav"
-import { Button } from "@/components/ui/button"
-import { Icons } from "@/components/icons"
+import { ConnectButton } from "@rainbow-me/rainbowkit" // Import this
 
 export function SiteHeader() {
   return (
@@ -8,10 +8,7 @@ export function SiteHeader() {
       <div className="container flex h-16 items-center justify-between px-4">
         <MainNav />
         <div className="flex items-center space-x-4">
-          <Button variant="outline" className="border-white/10 bg-white/5 hover:bg-white/10 text-sm font-medium">
-            <Icons.wallet className="mr-2 h-4 w-4" />
-            Connect Wallet
-          </Button>
+          <ConnectButton showBalance={false} chainStatus="icon" accountStatus="address" />
         </div>
       </div>
     </header>

@@ -1,258 +1,211 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { UploadCloud, CheckCircle2, AlertCircle, BrainCircuit } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { UploadCloud, CheckCircle2, Wallet, ChevronLeft, FileText, Database } from "lucide-react"
 import { toast } from "sonner"
+import { ConnectButton } from "@rainbow-me/rainbowkit"
+import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi"
+
+// ABI Segment for submitData
+const CONTRACT_ABI = [
+  {
+    "inputs": [{"internalType": "string","name": "dataHash","type": "string"}],
+    "name": "submitData",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+];
+const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`;
 
 export default function BountyDetail() {
-  const [uploadState, setUploadState] = useState<"idle" | "uploading" | "verifying" | "success" | "error">("idle")
-  const [impactScore, setImpactScore] = useState<number | null>(null)
+  // ... hook logic ...
+  const { isConnected } = useAccount()
+  const [uploadState, setUploadState] = useState<"idle" | "uploading" | "tx_pending" | "success" | "error">("idle")
+  const [zeroGHash, setZeroGHash] = useState<string>("")
+  const { data: hash, writeContract, isPending } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash }) 
 
-  const handleUpload = async (e: React.FormEvent) => {
+  const handleFileUpload = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    const formData = new FormData(e.currentTarget)
+    const file = formData.get("dataset") as File
+    const prompt = "Handwritten Digit Recognition" 
+
+    if (!file) return;
     setUploadState("uploading")
 
-    // Simulate upload
-    setTimeout(() => {
-      setUploadState("verifying")
-      // Simulate verification
-      setTimeout(() => {
-        const success = Math.random() > 0.3 // 70% chance of success for demo
-        if (success) {
-          setImpactScore(0.85)
-          setUploadState("success")
-          toast.success("Data verified! Impact score: +0.85%")
-        } else {
-          setUploadState("error")
-          toast.error("Data rejected. Did not improve model accuracy.")
-        }
-      }, 3000)
-    }, 2000)
+    try {
+      const textData = await file.text(); 
+      const response = await fetch("/api/agent/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data: textData, prompt: prompt, dataType: "text" })
+      });
+      const result = await response.json();
+      if (!result.success) throw new Error(result.message);
+
+      setZeroGHash(result.rootHash);
+      setUploadState("tx_pending");
+      writeContract({
+        address: CONTRACT_ADDRESS,
+        abi: CONTRACT_ABI,
+        functionName: 'submitData',
+        args: [result.rootHash],
+      });
+    } catch (err: any) {
+        console.error(err);
+        setUploadState("error");
+        toast.error(err.message || "Upload failed");
+    }
+  }
+
+  if (isConfirmed && uploadState !== "success") {
+    setUploadState("success");
+    toast.success("Submission confirmed on Oasis Network!");
   }
 
   return (
-    <div className="container py-10 max-w-5xl">
-      <div className="mb-8">
-        <Link href="/consumer/bounties" className="text-sm text-muted-foreground hover:text-primary mb-4 inline-block">
-          ← Back to Bounties
-        </Link>
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-4xl font-bold mb-2">Handwritten Digit Recognition Dataset</h1>
-            <div className="flex items-center gap-3">
-              <Badge variant="outline" className="text-primary border-primary/20">
-                OpenAI Research
-              </Badge>
-              <Badge variant="secondary" className="bg-green-500/10 text-green-500">
-                Easy
-              </Badge>
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="text-3xl font-bold text-primary">500 USDC</div>
-            <div className="text-sm text-muted-foreground">Per valid submission</div>
-          </div>
+    <div className="min-h-screen bg-background text-foreground">
+      {/* Top Navigation Bar */}
+      <div className="border-b border-white/10 bg-black/50 backdrop-blur-md sticky top-16 z-30">
+        <div className="container h-16 flex items-center justify-between">
+             <Link href="/consumer/bounties" className="text-sm font-medium text-zinc-400 hover:text-white flex items-center transition-colors">
+                <ChevronLeft className="mr-1 h-4 w-4" /> Back to Marketplace
+            </Link>
+            <ConnectButton />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-8">
-          <Tabs defaultValue="details" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 bg-zinc-900/50">
-              <TabsTrigger value="details">Details</TabsTrigger>
-              <TabsTrigger value="requirements">Requirements</TabsTrigger>
-              <TabsTrigger value="examples">Examples</TabsTrigger>
-            </TabsList>
-            <TabsContent value="details" className="mt-6 space-y-4">
-              <Card className="bg-zinc-900/50 border-white/10">
+      <div className="container py-10 max-w-6xl">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
+          
+          {/* Left Column: Bounty Details */}
+          <div className="lg:col-span-2 space-y-8">
+            <div>
+                <div className="flex items-center gap-3 mb-4">
+                    <Badge variant="secondary" className="bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 rounded-md border border-purple-500/20">Computer Vision</Badge>
+                    <Badge variant="outline" className="text-zinc-400 border-white/10">MNIST</Badge>
+                </div>
+                <h1 className="text-4xl font-medium tracking-tight mb-4 text-white">Handwritten Digit Recognition</h1>
+                <p className="text-lg text-zinc-400 leading-relaxed">
+                    OpenAI Research is seeking high-quality images of handwritten digits (0-9) to improve the robustness of their OCR models against noisy backgrounds.
+                </p>
+            </div>
+
+            <Tabs defaultValue="requirements" className="w-full">
+                <TabsList className="w-full justify-start border-b border-white/10 rounded-none h-auto p-0 bg-transparent">
+                    <TabsTrigger value="requirements" className="rounded-none border-b-2 border-transparent data-[state=active]:border-purple-500 data-[state=active]:text-purple-500 data-[state=active]:bg-transparent px-6 py-3 text-zinc-400 hover:text-zinc-200">Requirements</TabsTrigger>
+                    <TabsTrigger value="examples" className="rounded-none border-b-2 border-transparent data-[state=active]:border-purple-500 data-[state=active]:text-purple-500 data-[state=active]:bg-transparent px-6 py-3 text-zinc-400 hover:text-zinc-200">Examples</TabsTrigger>
+                    <TabsTrigger value="rewards" className="rounded-none border-b-2 border-transparent data-[state=active]:border-purple-500 data-[state=active]:text-purple-500 data-[state=active]:bg-transparent px-6 py-3 text-zinc-400 hover:text-zinc-200">Rewards</TabsTrigger>
+                </TabsList>
+                <TabsContent value="requirements" className="pt-6 space-y-4">
+                    <div className="bg-zinc-900/50 border border-white/10 rounded-2xl p-6 space-y-4">
+                        <h3 className="font-medium flex items-center gap-2 text-white"><FileText className="h-4 w-4 text-purple-400"/> Data Format</h3>
+                        <ul className="list-disc list-inside text-zinc-400 space-y-2 ml-2">
+                            <li>Format: CSV or Grayscale Image Folder</li>
+                            <li>Resolution: 28x28 pixels minimum</li>
+                            <li>Labeling: Must include ground truth labels (0-9)</li>
+                        </ul>
+                    </div>
+                </TabsContent>
+                <TabsContent value="examples" className="pt-6">
+                    <div className="grid grid-cols-3 gap-4">
+                        <div className="aspect-square bg-zinc-900 rounded-xl border border-white/10 flex items-center justify-center text-zinc-500">Example 1</div>
+                        <div className="aspect-square bg-zinc-900 rounded-xl border border-white/10 flex items-center justify-center text-zinc-500">Example 2</div>
+                        <div className="aspect-square bg-zinc-900 rounded-xl border border-white/10 flex items-center justify-center text-zinc-500">Example 3</div>
+                    </div>
+                </TabsContent>
+            </Tabs>
+          </div>
+          
+          {/* Right Column: Action Card */}
+          <div className="lg:col-span-1">
+            <Card className="border border-purple-500/20 bg-zinc-900/80 shadow-lg shadow-purple-900/10 sticky top-32 rounded-3xl overflow-hidden backdrop-blur-sm">
+                <div className="h-2 bg-gradient-to-r from-purple-600 to-purple-400 w-full"></div>
                 <CardHeader>
-                  <CardTitle>Project Overview</CardTitle>
+                <CardTitle className="flex items-center gap-2 text-xl text-white">
+                    <Database className="h-5 w-5 text-purple-400" />
+                    Submit Contribution
+                </CardTitle>
+                <CardDescription className="text-zinc-400">
+                    Earn <span className="font-bold text-white">500 USDC</span> per verified batch.
+                </CardDescription>
                 </CardHeader>
-                <CardContent className="text-zinc-400 space-y-4">
-                  <p>
-                    We are improving our computer vision models for recognizing handwritten digits. We specifically need
-                    more variety in handwriting styles, particularly for the numbers 4, 7, and 9.
-                  </p>
-                  <p>
-                    Your data will be used to train a lightweight CNN model. Verification is done instantly using our
-                    decentralized agent network powered by 0G Storage and Oasis privacy-preserving compute.
-                  </p>
+                <CardContent>
+                {!isConnected ? (
+                    <div className="text-center py-8 bg-black/20 rounded-xl border border-dashed border-white/10">
+                        <p className="mb-4 text-zinc-400 text-sm">Connect your wallet to verify & submit data.</p>
+                        <div className="flex justify-center scale-90"><ConnectButton /></div>
+                    </div>
+                ) : (
+                    <>
+                    {uploadState === "idle" && (
+                        <form onSubmit={handleFileUpload} className="space-y-6">
+                        <div className="space-y-3">
+                            <Label htmlFor="dataset" className="text-sm font-medium text-zinc-300">Upload Dataset</Label>
+                            <div className="border-2 border-dashed border-white/10 rounded-xl p-6 hover:bg-white/5 transition-colors text-center cursor-pointer relative group">
+                                <Input id="dataset" name="dataset" type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" required />
+                                <UploadCloud className="h-8 w-8 text-zinc-500 group-hover:text-purple-400 transition-colors mx-auto mb-2" />
+                                <p className="text-sm text-purple-400 font-medium">Click to upload</p>
+                                <p className="text-xs text-zinc-500">CSV, TXT, or ZIP</p>
+                            </div>
+                        </div>
+                        <Button type="submit" className="w-full rounded-xl bg-purple-600 hover:bg-purple-700 h-12 text-base shadow-lg shadow-purple-900/20 text-white">
+                            Verify & Submit
+                        </Button>
+                        </form>
+                    )}
+
+                    {uploadState === "uploading" && (
+                        <div className="text-center py-8 space-y-4">
+                            <div className="animate-spin rounded-full h-12 w-12 border-4 border-zinc-800 border-t-purple-500 mx-auto"></div>
+                            <p className="text-zinc-400 text-sm font-medium animate-pulse">Verifying on 0G Compute...</p>
+                        </div>
+                    )}
+
+                    {uploadState === "tx_pending" && (
+                        <div className="text-center py-8 space-y-4">
+                            <div className="mx-auto w-12 h-12 bg-purple-500/10 rounded-full flex items-center justify-center animate-pulse">
+                                <Wallet className="h-6 w-6 text-purple-400" />
+                            </div>
+                            <div>
+                                <p className="text-white font-medium">Confirm Transaction</p>
+                                <p className="text-xs text-zinc-500 mt-1">Please sign in your wallet.</p>
+                            </div>
+                            {isPending && <Badge variant="outline" className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">Waiting for signature...</Badge>}
+                            {isConfirming && <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20">Confirming on Oasis...</Badge>}
+                        </div>
+                    )}
+
+                    {uploadState === "success" && (
+                        <div className="text-center py-8 space-y-4">
+                        <div className="rounded-full h-16 w-16 bg-green-500/10 flex items-center justify-center mx-auto">
+                            <CheckCircle2 className="h-8 w-8 text-green-500" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold text-white">Success!</h3>
+                            <p className="text-zinc-500 text-xs mt-2 font-mono bg-black/30 py-1 px-2 rounded mx-auto w-fit">{zeroGHash.substring(0,10)}...</p>
+                            <p className="text-green-500 mt-2 text-sm font-medium">Data verified & stored.</p>
+                        </div>
+                        <Button onClick={() => setUploadState("idle")} variant="outline" className="w-full rounded-xl border-white/10 hover:bg-white/5 text-white">
+                            Submit Another Batch
+                        </Button>
+                        </div>
+                    )}
+                    </>
+                )}
                 </CardContent>
-              </Card>
-            </TabsContent>
-            <TabsContent value="requirements" className="mt-6">
-              <Card className="bg-zinc-900/50 border-white/10">
-                <CardHeader>
-                  <CardTitle>Data Requirements</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <ul className="list-disc pl-6 space-y-2 text-zinc-400">
-                    <li>Images must be 28x28 pixels or larger.</li>
-                    <li>Grayscale or black and white only.</li>
-                    <li>Digit must be centered.</li>
-                    <li>Format: PNG or JPG.</li>
-                    <li>No synthetic/generated data (Stable Diffusion/Midjourney).</li>
-                  </ul>
-                </CardContent>
-              </Card>
-            </TabsContent>
-            <TabsContent value="examples" className="mt-6">
-              <Card className="bg-zinc-900/50 border-white/10">
-                <CardContent className="pt-6">
-                  <div className="grid grid-cols-4 gap-4">
-                    <div className="aspect-square bg-zinc-800 rounded flex items-center justify-center text-2xl font-mono">
-                      7
-                    </div>
-                    <div className="aspect-square bg-zinc-800 rounded flex items-center justify-center text-2xl font-mono">
-                      4
-                    </div>
-                    <div className="aspect-square bg-zinc-800 rounded flex items-center justify-center text-2xl font-mono">
-                      9
-                    </div>
-                    <div className="aspect-square bg-zinc-800 rounded flex items-center justify-center text-2xl font-mono">
-                      1
-                    </div>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-4 text-center">Reference samples</p>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-
-          <Card className="border-primary/20 bg-primary/5">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <UploadCloud className="h-5 w-5 text-primary" />
-                Upload Data
-              </CardTitle>
-              <CardDescription>Upload your dataset to begin the verification process.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {uploadState === "idle" && (
-                <form onSubmit={handleUpload} className="space-y-4">
-                  <div className="grid w-full max-w-sm items-center gap-1.5">
-                    <Label htmlFor="dataset">Dataset File (ZIP/PNG)</Label>
-                    <Input id="dataset" type="file" className="cursor-pointer bg-background border-white/10" />
-                  </div>
-                  <div className="flex items-center space-x-2 pt-2">
-                    <input
-                      type="checkbox"
-                      id="terms"
-                      className="rounded border-gray-300 text-primary focus:ring-primary"
-                      required
-                    />
-                    <label htmlFor="terms" className="text-sm text-muted-foreground">
-                      I certify that I own this data and it meets the privacy requirements.
-                    </label>
-                  </div>
-                  <Button type="submit" className="w-full">
-                    Submit for Verification
-                  </Button>
-                </form>
-              )}
-
-              {uploadState === "uploading" && (
-                <div className="text-center py-8 space-y-4">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-                  <p className="text-muted-foreground">Uploading to 0G Storage...</p>
-                </div>
-              )}
-
-              {uploadState === "verifying" && (
-                <div className="text-center py-8 space-y-4">
-                  <div className="animate-pulse rounded-full h-12 w-12 bg-primary/20 flex items-center justify-center mx-auto">
-                    <BrainCircuit className="h-6 w-6 text-primary" />
-                  </div>
-                  <p className="text-primary font-medium">Running Verification Agent...</p>
-                  <p className="text-xs text-muted-foreground">
-                    Checking model improvement (SGDClassifier Partial Fit)
-                  </p>
-                </div>
-              )}
-
-              {uploadState === "success" && (
-                <div className="text-center py-8 space-y-4">
-                  <div className="rounded-full h-16 w-16 bg-green-500/20 flex items-center justify-center mx-auto">
-                    <CheckCircle2 className="h-8 w-8 text-green-500" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-white">Verified!</h3>
-                    <p className="text-green-400">Impact Score: +{impactScore}%</p>
-                  </div>
-                  <Button onClick={() => setUploadState("idle")} variant="outline">
-                    Upload More
-                  </Button>
-                </div>
-              )}
-
-              {uploadState === "error" && (
-                <div className="text-center py-8 space-y-4">
-                  <div className="rounded-full h-16 w-16 bg-red-500/20 flex items-center justify-center mx-auto">
-                    <AlertCircle className="h-8 w-8 text-red-500" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-white">Rejected</h3>
-                    <p className="text-red-400">Data did not improve model accuracy.</p>
-                  </div>
-                  <Button onClick={() => setUploadState("idle")} variant="outline">
-                    Try Again
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="space-y-6">
-          <Card className="bg-zinc-900/50 border-white/10">
-            <CardHeader>
-              <CardTitle>Your Stats</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Submissions</span>
-                <span className="font-bold">12</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Total Earned</span>
-                <span className="font-bold text-green-400">450 USDC</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Avg. Impact</span>
-                <span className="font-bold text-primary">+0.4%</span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-zinc-900/50 border-white/10">
-            <CardHeader>
-              <CardTitle>Top Contributors</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-full bg-zinc-800 flex items-center justify-center text-xs">
-                      0x{i}F
-                    </div>
-                    <div className="flex-1">
-                      <div className="text-sm font-medium">User_84{i}</div>
-                      <div className="text-xs text-muted-foreground">+{1.2 - i * 0.2}% impact</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+            </Card>
+          </div>
         </div>
       </div>
     </div>

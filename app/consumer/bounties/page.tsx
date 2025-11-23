@@ -1,6 +1,7 @@
 import { BountyCard } from "@/components/bounty-card"
 import { Input } from "@/components/ui/input"
-import { Search } from "lucide-react"
+import { Search, Filter } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 export default function BountyMarketplace() {
   const bounties = [
@@ -9,7 +10,7 @@ export default function BountyMarketplace() {
       title: "Handwritten Digit Recognition Dataset",
       labName: "OpenAI Research",
       reward: "500",
-      tags: ["Computer Vision", "MNIST", "Image"],
+      tags: ["Vision", "MNIST", "Image"],
       timeLeft: "2 days left",
       difficulty: "Easy" as const,
     },
@@ -43,22 +44,44 @@ export default function BountyMarketplace() {
   ]
 
   return (
-    <div className="container py-10">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-8">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Active Bounties</h2>
-          <p className="text-muted-foreground">Discover tasks and contribute data to earn rewards.</p>
+    <div className="min-h-screen bg-background">
+      {/* Subtle gradient instead of dots */}
+      <div className="absolute inset-0 bg-gradient-to-b from-purple-900/5 to-transparent pointer-events-none h-96" />
+      
+      <div className="container py-12 md:py-20 relative z-10">
+        
+        {/* Header Section */}
+        <div className="flex flex-col items-center text-center space-y-4 mb-16">
+          <h1 className="text-4xl md:text-5xl font-medium tracking-tight text-white">
+            Data Marketplace
+          </h1>
+          <p className="text-lg text-zinc-400 max-w-2xl">
+            Discover active bounties from top AI labs. Contribute data, pass verification, and earn crypto instantly.
+          </p>
+          
+          {/* Search Bar */}
+          <div className="relative w-full max-w-lg mt-8">
+            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <Search className="h-4 w-4 text-zinc-500" />
+            </div>
+            <Input 
+                placeholder="Search by tag, lab, or dataset type..." 
+                className="pl-10 h-12 rounded-full bg-white/5 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-purple-500" 
+            />
+            <div className="absolute inset-y-0 right-1 flex items-center">
+                <Button size="sm" variant="ghost" className="rounded-full h-10 w-10 p-0 hover:bg-white/10 text-zinc-400">
+                    <Filter className="h-4 w-4" />
+                </Button>
+            </div>
+          </div>
         </div>
-        <div className="relative w-full md:w-96">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search bounties..." className="pl-8 bg-zinc-900/50 border-white/10" />
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {bounties.map((bounty) => (
-          <BountyCard key={bounty.id} {...bounty} />
-        ))}
+        {/* Grid */}
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {bounties.map((bounty) => (
+            <BountyCard key={bounty.id} {...bounty} />
+          ))}
+        </div>
       </div>
     </div>
   )

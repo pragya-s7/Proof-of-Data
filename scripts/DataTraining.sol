@@ -1,70 +1,152 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.20;
 
-// This is a simplified smart contract for the Hackathon
-contract DataTraining {
-    address public oracle; // The Python agent
-    address public lab;    // The AI Lab owner
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+/**
+ * @title DataTraining
+ * @dev This contract manages data submissions for an AI model, evaluates their contribution,
+ * and rewards the contributors based on the performance improvement.
+ */
+contract DataTraining is Ownable {
+    enum SubmissionStatus { Pending, Evaluated }
 
     struct Submission {
         address contributor;
         string dataHash; // 0G Storage CID
-        bool verified;
-        int256 impactScore; // Scaled by 1000 (e.g., 500 = 0.5%)
-        bool paid;
+        SubmissionStatus status;
+        int256 accuracyDelta; // The improvement score
+        uint256 payout;
     }
 
+    IERC20 public rewardToken; // The ERC20 token for payouts (e.g., USDC)
+    
     mapping(uint256 => Submission) public submissions;
-    uint256 public submissionCount;
-    uint256 public baseReward = 50 * 10**6; // 50 USDC (assuming 6 decimals)
+    uint256 public nextSubmissionId;
 
-    event DataSubmitted(uint256 indexed id, address indexed contributor, string dataHash);
-    event Payout(uint256 indexed id, address indexed contributor, uint256 amount);
+    // The address of the trusted AI agent that reports evaluation results
+    address public evaluationAgent;
 
-    modifier onlyOracle() {
-        require(msg.sender == oracle, "Only oracle can call");
+    // Total funds deposited by the AI Lab
+    uint256 public rewardPool;
+
+    // A base reward per submission, can be adjusted
+    uint256 public baseReward = 10 * 1e6; // Example: 10 USDC with 6 decimals
+
+    // A multiplier for the accuracy delta to calculate the bonus
+    uint256 public bonusMultiplier = 100;
+
+    event DataSubmitted(uint256 indexed submissionId, address indexed contributor, string dataHash);
+    event EvaluationReported(uint256 indexed submissionId, int256 accuracyDelta, uint256 payout);
+    event RewardPoolFunded(uint256 amount);
+
+    modifier onlyEvaluationAgent() {
+        require(msg.sender == evaluationAgent, "Caller is not the evaluation agent");
         _;
     }
 
-    constructor(address _oracle) {
-        lab = msg.sender;
-        oracle = _oracle;
+    constructor(address initialRewardToken, address initialAgent, address initialOwner) Ownable(initialOwner) {
+        rewardToken = IERC20(initialRewardToken);
+        evaluationAgent = initialAgent;
     }
 
-    // User submits data
-    function submitData(string memory _dataHash) external {
-        submissionCount++;
-        submissions[submissionCount] = Submission({
-            contributor: msg.sender,
-            dataHash: _dataHash,
-            verified: false,
-            impactScore: 0,
-            paid: false
-        });
-        
-        emit DataSubmitted(submissionCount, msg.sender, _dataHash);
-    }
-
-    // Oracle reports back the model improvement
-    function reportEvaluation(uint256 _submissionId, int256 _impactScore) external onlyOracle {
-        Submission storage sub = submissions[_submissionId];
-        require(!sub.verified, "Already verified");
-        
-        sub.verified = true;
-        sub.impactScore = _impactScore;
-
-        if (_impactScore > 0) {
-            // Simple Payout Logic: Base + Bonus
-            uint256 bonus = uint256(_impactScore) * 1 * 10**6; 
-            uint256 totalPayout = baseReward + bonus;
-            
-            // In production, this would transfer ERC20 tokens
-            // IERC20(usdc).transfer(sub.contributor, totalPayout);
-            sub.paid = true;
-            emit Payout(_submissionId, sub.contributor, totalPayout);
+    /**
+     * @dev Allows the AI Lab (owner) to fund the contract's reward pool.
+     */
+    function fundRewardPool(uint256 amount) public payable {
+        require(amount > 0, "Amount must be greater than zero");
+        // For ETH-based rewards
+        if (address(rewardToken) == address(0)) {
+            rewardPool += msg.value;
+        } else { // For ERC20-based rewards
+            require(msg.value == 0, "Do not send ETH when using an ERC20 token");
+            uint256 initialBalance = rewardToken.balanceOf(address(this));
+            rewardToken.transferFrom(msg.sender, address(this), amount);
+            uint256 finalBalance = rewardToken.balanceOf(address(this));
+            rewardPool += (finalBalance - initialBalance);
         }
+        emit RewardPoolFunded(amount);
     }
 
-    // Lab deposits funds (mock)
-    function deposit() external payable {}
+    /**
+     * @dev Allows a user to submit a hash of their data (CID from 0G Storage).
+     */
+    function submitData(string calldata dataHash) external {
+        uint256 submissionId = nextSubmissionId++;
+        submissions[submissionId] = Submission({
+            contributor: msg.sender,
+            dataHash: dataHash,
+            status: SubmissionStatus.Pending,
+            accuracyDelta: 0,
+            payout: 0
+        });
+        emit DataSubmitted(submissionId, msg.sender, dataHash);
+    }
+
+    /**
+     * @dev Called by the evaluation agent to report the accuracy improvement and trigger payment.
+     * @param submissionId The ID of the data submission being evaluated.
+     * @param accuracyDelta The change in model accuracy (can be negative).
+     *        It's a fixed-point number, e.g., 1000 represents +1.000% accuracy change.
+     */
+    function reportEvaluation(uint256 submissionId, int256 accuracyDelta) external onlyEvaluationAgent {
+        Submission storage submission = submissions[submissionId];
+        require(submission.status == SubmissionStatus.Pending, "Submission already evaluated");
+
+        submission.status = SubmissionStatus.Evaluated;
+        submission.accuracyDelta = accuracyDelta;
+
+        uint256 payout = 0;
+        if (accuracyDelta > 0) {
+            // Calculate payout: base reward + bonus for positive contribution
+            // Bonus is proportional to the accuracy improvement
+            uint256 bonus = (uint256(accuracyDelta) * bonusMultiplier);
+            payout = baseReward + bonus;
+
+            if (payout > rewardPool) {
+                payout = rewardPool; // Cap payout at available pool funds
+            }
+
+            if (payout > 0) {
+                submission.payout = payout;
+                rewardPool -= payout;
+                rewardToken.transfer(submission.contributor, payout);
+            }
+        }
+        // If accuracyDelta is <= 0, payout remains 0.
+
+        emit EvaluationReported(submissionId, accuracyDelta, payout);
+    }
+    
+    /**
+     * @dev Allows the owner to withdraw any remaining funds from the reward pool.
+     */
+    function withdrawRemainingFunds() public onlyOwner {
+        uint256 balance = rewardToken.balanceOf(address(this));
+        require(balance > 0, "No funds to withdraw");
+        rewardPool = 0;
+        rewardToken.transfer(owner(), balance);
+    }
+
+    /**
+     * @dev Updates the address of the evaluation agent.
+     */
+    function setEvaluationAgent(address newAgent) public onlyOwner {
+        evaluationAgent = newAgent;
+    }
+
+    /**
+     * @dev Updates the base reward.
+     */
+    function setBaseReward(uint256 newBaseReward) public onlyOwner {
+        baseReward = newBaseReward;
+    }
+
+    /**
+     * @dev Updates the bonus multiplier.
+     */
+    function setBonusMultiplier(uint256 newMultiplier) public onlyOwner {
+        bonusMultiplier = newMultiplier;
+    }
 }
