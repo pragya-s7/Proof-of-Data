@@ -1,7 +1,7 @@
 services:
   agent:
     build: .
-    image: "docker.io/pragya7/detrain-agent:v4"
+    image: "docker.io/pragya7/detrain-agent:v5"
     platform: linux/amd64
     volumes:
       # REQUIRED: Mount the ROFL app daemon socket to sign transactions
