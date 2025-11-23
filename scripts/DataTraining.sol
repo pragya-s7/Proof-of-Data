@@ -3,11 +3,13 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+// Oasis Sapphire specific import for ROFL verification
+import { Subcall } from "@oasisprotocol/sapphire-contracts/contracts/Subcall.sol";
 
 /**
  * @title DataTraining
- * @dev This contract manages data submissions for an AI model, evaluates their contribution,
- * and rewards the contributors based on the performance improvement.
+ * @dev This contract manages data submissions for an AI model, evaluates their contribution
+ *      via an off-chain ROFL (Trusted Execution Environment) agent, and rewards contributors.
  */
 contract DataTraining is Ownable {
     enum SubmissionStatus { Pending, Evaluated }
@@ -16,7 +18,7 @@ contract DataTraining is Ownable {
         address contributor;
         string dataHash; // 0G Storage CID
         SubmissionStatus status;
-        int256 accuracyDelta; // The improvement score
+        int256 accuracyDelta; // The improvement score (fixed point)
         uint256 payout;
     }
 
@@ -25,13 +27,13 @@ contract DataTraining is Ownable {
     mapping(uint256 => Submission) public submissions;
     uint256 public nextSubmissionId;
 
-    // The address of the trusted AI agent that reports evaluation results
-    address public evaluationAgent;
+    // The ROFL App ID (bytes21) that is authorized to submit evaluations
+    bytes21 public roflAppId;
 
     // Total funds deposited by the AI Lab
     uint256 public rewardPool;
 
-    // A base reward per submission, can be adjusted
+    // A base reward per submission
     uint256 public baseReward = 10 * 1e6; // Example: 10 USDC with 6 decimals
 
     // A multiplier for the accuracy delta to calculate the bonus
@@ -41,14 +43,15 @@ contract DataTraining is Ownable {
     event EvaluationReported(uint256 indexed submissionId, int256 accuracyDelta, uint256 payout);
     event RewardPoolFunded(uint256 amount);
 
-    modifier onlyEvaluationAgent() {
-        require(msg.sender == evaluationAgent, "Caller is not the evaluation agent");
+    // Modifier to ensure the caller is the specific authorized ROFL application
+    modifier onlyRoflApp() {
+        Subcall.roflEnsureAuthorizedOrigin(roflAppId);
         _;
     }
 
-    constructor(address initialRewardToken, address initialAgent, address initialOwner) Ownable(initialOwner) {
+    constructor(address initialRewardToken, bytes21 _roflAppId, address initialOwner) Ownable(initialOwner) {
         rewardToken = IERC20(initialRewardToken);
-        evaluationAgent = initialAgent;
+        roflAppId = _roflAppId;
     }
 
     /**
@@ -85,12 +88,12 @@ contract DataTraining is Ownable {
     }
 
     /**
-     * @dev Called by the evaluation agent to report the accuracy improvement and trigger payment.
+     * @dev Called by the ROFL agent to report the accuracy improvement and trigger payment.
+     *      This function is protected by the `onlyRoflApp` modifier.
      * @param submissionId The ID of the data submission being evaluated.
-     * @param accuracyDelta The change in model accuracy (can be negative).
-     *        It's a fixed-point number, e.g., 1000 represents +1.000% accuracy change.
+     * @param accuracyDelta The change in model accuracy (fixed point, 1000 = 1.0%).
      */
-    function reportEvaluation(uint256 submissionId, int256 accuracyDelta) external onlyEvaluationAgent {
+    function reportEvaluation(uint256 submissionId, int256 accuracyDelta) external onlyRoflApp {
         Submission storage submission = submissions[submissionId];
         require(submission.status == SubmissionStatus.Pending, "Submission already evaluated");
 
@@ -130,10 +133,10 @@ contract DataTraining is Ownable {
     }
 
     /**
-     * @dev Updates the address of the evaluation agent.
+     * @dev Updates the ROFL App ID if redeployed.
      */
-    function setEvaluationAgent(address newAgent) public onlyOwner {
-        evaluationAgent = newAgent;
+    function setRoflAppId(bytes21 newId) public onlyOwner {
+        roflAppId = newId;
     }
 
     /**
