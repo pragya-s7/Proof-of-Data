@@ -22,6 +22,7 @@ export default function BountyDetail() {
   const [zeroGHash, setZeroGHash] = useState<string>("")
   const [submissionId, setSubmissionId] = useState<bigint | null>(null)
   const [evaluationResult, setEvaluationResult] = useState<{ accuracyDelta: bigint, payout: bigint } | null>(null)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   
   const { writeContractAsync } = useWriteContract()
   const detrainContract = useDeTrainContract();
@@ -47,19 +48,28 @@ export default function BountyDetail() {
     },
   });
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setSelectedFile(e.target.files[0]);
+    }
+  };
+
   const handleFileUpload = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (!selectedFile) {
+      toast.error("Please select a file to upload.");
+      return;
+    }
+
     const formData = new FormData(e.currentTarget)
-    const file = formData.get("dataset") as File
     const label = formData.get("label") as string
     const prompt = "Handwritten Digit Recognition" 
 
-    if (!file) return;
     setUploadState("uploading")
 
     try {
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", selectedFile);
       formData.append("prompt", prompt);
       const response = await fetch("/api/agent/upload", {
         method: "POST",
@@ -176,10 +186,19 @@ export default function BountyDetail() {
                         <div className="space-y-3">
                             <Label htmlFor="dataset" className="text-sm font-medium text-zinc-300">Upload Dataset</Label>
                             <div className="border-2 border-dashed border-white/10 rounded-xl p-6 hover:bg-white/5 transition-colors text-center cursor-pointer relative group">
-                                <Input id="dataset" name="dataset" type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" required />
-                                <UploadCloud className="h-8 w-8 text-zinc-500 group-hover:text-purple-400 transition-colors mx-auto mb-2" />
-                                <p className="text-sm text-purple-400 font-medium">Click to upload</p>
-                                <p className="text-xs text-zinc-500">CSV, TXT, or ZIP</p>
+                                <Input id="dataset" name="dataset" type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={handleFileChange} required />
+                                {selectedFile ? (
+                                  <div>
+                                    <p className="text-sm text-purple-400 font-medium">{selectedFile.name}</p>
+                                    <p className="text-xs text-zinc-500">{Math.round(selectedFile.size / 1024)} KB</p>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <UploadCloud className="h-8 w-8 text-zinc-500 group-hover:text-purple-400 transition-colors mx-auto mb-2" />
+                                    <p className="text-sm text-purple-400 font-medium">Click to upload</p>
+                                    <p className="text-xs text-zinc-500">CSV, TXT, or ZIP</p>
+                                  </>
+                                )}
                             </div>
                         </div>
                         <Button type="submit" className="w-full rounded-xl bg-purple-600 hover:bg-purple-700 h-12 text-base shadow-lg shadow-purple-900/20 text-white">
