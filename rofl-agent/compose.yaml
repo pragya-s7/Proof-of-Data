@@ -1,22 +1,16 @@
 services:
   agent:
     build: .
-    image: "docker.io/pragya7/detrain-agent:v5"
+    image: "docker.io/pragya7/detrain-agent:v6" # UPDATED
     platform: linux/amd64
     volumes:
-      # REQUIRED: Mount the ROFL app daemon socket to sign transactions
       - rofl-socket:/run/rofl-appd.sock
-      # REQUIRED: Mount persistent storage for the AI model state
       - model-data:/data/model
     environment:
-      # This address must match your deployed DataTraining.sol address
       - PYTHONUNBUFFERED=1
       - CONTRACT_ADDRESS=${CONTRACT_ADDRESS}
-      # API Key for Filecoin archival (Lighthouse)
       - LIGHTHOUSE_API_KEY=${LIGHTHOUSE_API_KEY}
-      # Note: No PRIVATE_KEY is needed here; ROFL manages the keys internally.
 
-# Define the volumes used above
 volumes:
   rofl-socket:
   model-data:
