@@ -124,28 +124,27 @@ class RoflAgent:
     def listen(self):
         print("🎧 Listening for DataSubmitted events...")
         
-        # Start looking from the current block
-        last_block = w3.eth.block_number
+        # Create a filter starting from the latest block
+        # This is the standard Web3.py pattern for polling
+        event_filter = self.contract.events.DataSubmitted.create_filter(fromBlock='latest')
         
         while True:
             try:
-                current_block = w3.eth.block_number
-                if current_block > last_block:
-                    # Fetch events from last_block + 1 to current_block
-                    events = self.contract.events.DataSubmitted.get_logs(
-                        fromBlock=last_block + 1,
-                        toBlock=current_block
-                    )
-                    
-                    for event in events:
-                        self.process(event)
-                    
-                    last_block = current_block
+                # Poll for new events
+                new_entries = event_filter.get_new_entries()
+                
+                for event in new_entries:
+                    self.process(event)
                 
                 time.sleep(5)
             except Exception as e:
                 print(f"⚠️ Loop Error: {e}")
-                time.sleep(5)
+                # Re-create filter if it crashes (e.g. connection reset)
+                try:
+                    time.sleep(5)
+                    event_filter = self.contract.events.DataSubmitted.create_filter(fromBlock='latest')
+                except:
+                    pass
 
     def process(self, event):
         sub_id = event['args']['submissionId']

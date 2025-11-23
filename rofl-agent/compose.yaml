@@ -1,7 +1,7 @@
 services:
   agent:
     build: .
-    image: "docker.io/pragya7/detrain-agent:v3"
+    image: "docker.io/pragya7/detrain-agent:v4"
     platform: linux/amd64
     volumes:
       # REQUIRED: Mount the ROFL app daemon socket to sign transactions
@@ -10,6 +10,7 @@ services:
       - model-data:/data/model
     environment:
       # This address must match your deployed DataTraining.sol address
+      - PYTHONUNBUFFERED=1
       - CONTRACT_ADDRESS=${CONTRACT_ADDRESS}
       # API Key for Filecoin archival (Lighthouse)
       - LIGHTHOUSE_API_KEY=${LIGHTHOUSE_API_KEY}
