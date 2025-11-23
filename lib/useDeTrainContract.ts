@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { Contract, BrowserProvider } from "ethers";
 import DataTrainingABI from "../abis/DataTraining.json";
 
-const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_DETRAIN_CONTRACT_ADDRESS || "0xDca3e5cbD9fC8221688f0B064a9C58a2BfBf7b8d";
+const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_DETRAIN_CONTRACT_ADDRESS || "0xbd10d0eC2B534A1d1E5A5228b7B3909C92af902f";
 
 export function useDeTrainContract() {
   return useMemo(() => {

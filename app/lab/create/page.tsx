@@ -38,28 +38,36 @@ export default function CreateBounty() {
       const contractWithSigner = detrainContract.connect(signer);
 
       const usdcContract = new ethers.Contract(MOCK_USDC_ADDRESS, ERC20_ABI, signer);
+
+      const balance = await usdcContract.balanceOf(await signer.getAddress());
+      console.log("MockUSDC balance:", ethers.formatUnits(balance, 6));
       
-      toast('Approving tokens...');
+      toast.info('1/4: Approving tokens...');
       const approveTx = await usdcContract.approve(await contractWithSigner.getAddress(), ethers.parseUnits(amount, 6));
+      console.log("Approve transaction hash:", approveTx.hash);
       await approveTx.wait();
-      toast.success('Tokens approved!');
+      toast.success('1/4: Tokens approved!');
 
-      toast('Funding reward pool...');
+      const allowance = await usdcContract.allowance(await signer.getAddress(), await contractWithSigner.getAddress());
+      console.log("Allowance:", ethers.formatUnits(allowance, 6));
+
+      toast.info('2/4: Funding reward pool...');
       const tx = await contractWithSigner.fundRewardPool(ethers.parseUnits(amount, 6), { value: 0 });
-      toast('Transaction submitted: ' + (tx?.hash || '(no hash)'));
-      
+      console.log("Fund pool transaction hash:", tx.hash);
       await tx.wait();
-      toast.success('Reward pool funded!');
+      toast.success('2/4: Reward pool funded!');
 
-      toast('Setting base reward...');
+      toast.info('3/4: Setting base reward...');
       const tx2 = await contractWithSigner.setBaseReward(ethers.parseUnits(baseReward, 6));
+      console.log("Set base reward transaction hash:", tx2.hash);
       await tx2.wait();
-      toast.success('Base reward set!');
+      toast.success('3/4: Base reward set!');
 
-      toast('Setting bonus multiplier...');
+      toast.info('4/4: Setting bonus multiplier...');
       const tx3 = await contractWithSigner.setBonusMultiplier(bonusMultiplier);
+      console.log("Set bonus multiplier transaction hash:", tx3.hash);
       await tx3.wait();
-      toast.success('Bonus multiplier set!');
+      toast.success('4/4: Bonus multiplier set!');
 
     } catch (err) {
       toast.error(err.message || 'Failed to fund bounty');

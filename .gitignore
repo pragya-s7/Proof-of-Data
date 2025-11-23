@@ -38,6 +38,22 @@ tmp/
 .storybook-out/
 .svelte-kit/
 
+# Hardhat artifacts
+backend/artifacts/
+backend/cache/
+
+# Python specific
+__pycache__/
+*.pyc
+*.pyo
+.Python
+env/
+venv/
+.venv/
+.ipynb_checkpoints/
+.pytest_cache/
+.mypy_cache/
+
 # ======================================
 # Env / Secrets
 # ======================================
@@ -121,3 +137,4 @@ storybook-static/
 
 # Docker
 docker-compose.override.yml
+.env.development # .env file for local development for rofl-agent

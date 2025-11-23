@@ -18,24 +18,19 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider } from "wagmi";
 import { SessionProvider } from "./session-provider";
 
-const galileo = {
-  id: 16602,
-  name: "0G Galileo Testnet",
-  network: "galileo",
-  nativeCurrency: {
-    name: "OG",
-    symbol: "OG",
-    decimals: 18
-  },
+const sapphireTestnet = {
+  id: 23295,
+  name: 'Oasis Sapphire Testnet',
+  network: 'sapphire-testnet',
+  nativeCurrency: { name: 'Sapphire Testnet Token', symbol: 'TEST', decimals: 18 },
   rpcUrls: {
-    default: { http: ["https://rpc.ankr.com/0g_galileo_testnet_evm"] },
-    public: { http: ["https://rpc.ankr.com/0g_galileo_testnet_evm"] },
+    default: { http: ['https://testnet.sapphire.oasis.dev'] },
+    public: { http: ['https://testnet.sapphire.oasis.dev'] },
   },
   blockExplorers: {
-    default: { name: "0G Explorer", url: "https://explorer.0g.ai" },
-    etherscan: { name: "0G Explorer", url: "https://explorer.0g.ai" }
+    default: { name: 'Oasis Sapphire Testnet Explorer', url: 'https://testnet.explorer.sapphire.oasis.dev' },
   },
-  testnet: true
+  testnet: true,
 };
 
 const { wallets } = getDefaultWallets();
@@ -52,7 +47,7 @@ const config = getDefaultConfig({
       wallets: [argentWallet, trustWallet, ledgerWallet],
     },
   ],
-  chains: [galileo], // only allow 0G Galileo
+  chains: [sapphireTestnet],
   ssr: true,
 });
 
