@@ -51,7 +51,7 @@ export function BountyCard({ id, title, labName, reward, tags, timeLeft, difficu
             <div className="w-8 h-8 rounded-full bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center mr-2">
                 <Coins className="h-4 w-4 text-yellow-500" />
             </div>
-            {reward} <span className="text-zinc-500 font-normal ml-1">USDC</span>
+            {reward} <span className="text-zinc-500 font-normal ml-1">OG</span>
           </div>
           <div className="flex items-center text-zinc-500 text-xs font-mono">
             <Clock className="mr-1 h-3 w-3" />

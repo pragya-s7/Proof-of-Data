@@ -15,9 +15,9 @@ module.exports = {
   networks: {
     hardhat: {},
 
-    sepolia: {
-      url: "https://eth-sepolia.g.alchemy.com/v2/kls8f86lGR1T0YeE-_mGfYiYMcfgKzik",
-      chainId: 11155111,
+    galileo: {
+      url: "https://rpc.ankr.com/0g_galileo_testnet_evm",
+      chainId: 16602,
       accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
     },
 

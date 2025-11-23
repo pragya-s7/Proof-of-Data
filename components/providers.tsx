@@ -12,10 +12,29 @@ import {
   trustWallet,
   ledgerWallet,
 } from "@rainbow-me/rainbowkit/wallets";
-import { sepolia } from "wagmi/chains";
+import { Chain } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider } from "wagmi";
-import "@rainbow-me/rainbowkit/styles.css";
+
+const galileo = {
+  id: 16602,
+  name: "0G Galileo Testnet",
+  network: "galileo",
+  nativeCurrency: {
+    name: "OG",
+    symbol: "OG",
+    decimals: 18
+  },
+  rpcUrls: {
+    default: { http: ["https://rpc.ankr.com/0g_galileo_testnet_evm"] },
+    public: { http: ["https://rpc.ankr.com/0g_galileo_testnet_evm"] },
+  },
+  blockExplorers: {
+    default: { name: "0G Explorer", url: "https://explorer.0g.ai" },
+    etherscan: { name: "0G Explorer", url: "https://explorer.0g.ai" }
+  },
+  testnet: true
+};
 
 const { wallets } = getDefaultWallets();
 
@@ -31,7 +50,7 @@ const config = getDefaultConfig({
       wallets: [argentWallet, trustWallet, ledgerWallet],
     },
   ],
-  chains: [sepolia], // only allow Sepolia
+  chains: [galileo], // only allow 0G Galileo
   ssr: true,
 });
 

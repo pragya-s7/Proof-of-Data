@@ -1,20 +1,24 @@
 "use client";
-import { useWalletClient } from "wagmi";
 import { useMemo } from "react";
-import { Contract } from "ethers";
+import { Contract, BrowserProvider } from "ethers";
 import DeTrainMarketplaceABI from "../abis/DeTrainMarketplace.json";
 
-const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_DETRAIN_CONTRACT_ADDRESS || "0x34979fE1D92054AA28c7a8a7748C3177752E0c81";
+const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_DETRAIN_CONTRACT_ADDRESS || "0xDca3e5cbD9fC8221688f0B064a9C58a2BfBf7b8d";
 
 export function useDeTrainContract() {
-  const { data: walletClient } = useWalletClient();
   return useMemo(() => {
-    if (!walletClient) return null;
-    // For ethers v6, wagmi walletClient should be compatible as a signer
-    return new Contract(
-      CONTRACT_ADDRESS,
-      DeTrainMarketplaceABI.abi || DeTrainMarketplaceABI,
-      walletClient as any
-    );
-  }, [walletClient]);
+    if (typeof window === "undefined" || !(window as any).ethereum) return null;
+    try {
+      const provider = new BrowserProvider((window as any).ethereum);
+      // WARNING: getSigner() is asynchronous in ethers v6, so we can't return a contract-with-signer synchronously.
+      // Instead, we return the provider-attached contract for reads; writes must call .connect(signer).
+      return new Contract(
+        CONTRACT_ADDRESS,
+        DeTrainMarketplaceABI.abi || DeTrainMarketplaceABI,
+        provider
+      );
+    } catch {
+      return null;
+    }
+  }, []);
 }

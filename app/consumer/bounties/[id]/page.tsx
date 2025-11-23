@@ -45,11 +45,12 @@ export default function BountyDetail() {
     setUploadState("uploading")
 
     try {
-      const textData = await file.text(); 
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("prompt", prompt);
       const response = await fetch("/api/agent/upload", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ data: textData, prompt: prompt, dataType: "text" })
+        body: formData,
       });
       const result = await response.json();
       if (!result.success) throw new Error(result.message);

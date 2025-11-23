@@ -28,32 +28,36 @@ export default function CreateBounty() {
     const reward = event.target.reward.value;
     const budget = event.target.budget.value;
     // Parse as ETH (decimal string, e.g., '0.01')
-    let rewardWei, budgetWei;
+    let rewardWei, maxSubmissions, valueWei;
     try {
       rewardWei = ethers.parseEther(reward);
-      budgetWei = ethers.parseEther(budget);
+      maxSubmissions = Math.floor(parseFloat(budget) / parseFloat(reward));
+      valueWei = rewardWei * BigInt(maxSubmissions);
     } catch {
-      toast.error('Please enter valid ETH values for reward and budget');
+      toast.error('Please enter valid OG values for reward and budget');
       setLoading(false);
       return;
     }
     // Safety check for accidental whales
     if (parseFloat(reward) > 10 || parseFloat(budget) > 100) {
-      toast.error('Reward or budget too large (over 10 or 100 ETH). Are your units correct?');
+      toast.error('Reward or budget too large (over 10 or 100 OG). Are your units correct?');
       setLoading(false);
       return;
     }
-    const maxSubmissions = Math.floor(parseFloat(budget) / parseFloat(reward));
     const metadataURI = "ipfs://test-metadata";
     try {
-      if (!detrainContract) throw new Error("No contract signer");
+      if (!detrainContract) throw new Error("No contract available");
+      // Get signer & connect contract
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const contractWithSigner = detrainContract.connect(signer);
       toast('Deploying...');
-      const tx = await detrainContract.createBounty(
+      const tx = await contractWithSigner.createBounty(
         description,
         metadataURI,
         rewardWei,
         maxSubmissions,
-        { value: budgetWei }
+        { value: valueWei }
       );
       toast('Transaction submitted: ' + (tx?.hash || '(no hash)'));
       // Fully defensive .wait() usage
@@ -81,7 +85,7 @@ export default function CreateBounty() {
       <Card className="bg-zinc-900/50 border-white/10">
         <CardHeader>
           <CardTitle>Bounty Details</CardTitle>
-          <CardDescription>Define the data you need and the rewards for contributors (in ETH).</CardDescription>
+          <CardDescription>Define the data you need and the rewards for contributors (in OG).</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <form onSubmit={handleDeploy} className="space-y-6">
@@ -95,14 +99,14 @@ export default function CreateBounty() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="reward">Base Reward (ETH)</Label>
+                <Label htmlFor="reward">Base Reward (OG)</Label>
                 <Input id="reward" name="reward" type="number" step="0.0001" min="0.00001" placeholder="0.05" className="bg-zinc-950 border-white/10" required />
-                <span className="text-xs text-muted-foreground">Reward for each contribution, in ETH (e.g. 0.01)</span>
+                <span className="text-xs text-muted-foreground">Reward for each contribution, in OG (e.g. 0.01)</span>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="budget">Total Budget (ETH)</Label>
+                <Label htmlFor="budget">Total Budget (OG)</Label>
                 <Input id="budget" name="budget" type="number" step="0.0001" min="0.00001" placeholder="1.5" className="bg-zinc-950 border-white/10" required />
-                <span className="text-xs text-muted-foreground">Max ETH to spend, in ETH (e.g. 1.0)</span>
+                <span className="text-xs text-muted-foreground">Max OG to spend, in OG (e.g. 1.0)</span>
               </div>
             </div>
             <div className="pt-4">
